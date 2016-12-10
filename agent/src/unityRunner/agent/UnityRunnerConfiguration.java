@@ -23,6 +23,7 @@ public class UnityRunnerConfiguration {
     enum Platform {
         Windows,
         Mac,
+        Linux,
         Unsupported
     }
 
@@ -52,9 +53,11 @@ public class UnityRunnerConfiguration {
     final public static String MacPlistRelativePath = "Unity.app/Contents/Info.plist";
     final public static String MacUnityExecutableRelativePath = "Unity.app/Contents/MacOS/Unity";
     final public static String WindowsUnityExecutableRelativePath = "Editor\\unity.exe";
+    final public static String LinuxUnityExecutableRelativePath = "Editor/Unity";
 
     final static String windowsLogPath = System.getenv("LOCALAPPDATA") + "\\Unity\\Editor\\Editor.log";
     final static String macLogPath = System.getProperty("user.home") + "/Library/Logs/Unity/Editor.log";
+    final static String linuxLogPath = "/var/log/teamcity/Unity.log";
 
     /**
      * construct new Unity Runner configuration
@@ -67,6 +70,7 @@ public class UnityRunnerConfiguration {
                                     AgentRunningBuild agentRunningBuild) {
 
         platform = detectPlatform(agentConfiguration);
+        Loggers.AGENT.info("Unity Platform: " + platform);
         quit = Parameters.getBoolean(runnerParameters, PluginConstants.PROPERTY_QUIT);
         batchMode = Parameters.getBoolean(runnerParameters, PluginConstants.PROPERTY_BATCH_MODE);
         noGraphics = Parameters.getBoolean(runnerParameters, PluginConstants.PROPERTY_NO_GRAPHICS);
@@ -158,7 +162,10 @@ public class UnityRunnerConfiguration {
             return Platform.Windows;
         } else if (agentConfiguration.getSystemInfo().isMac()) {
             return Platform.Mac;
-        } else {
+        } else if (agentConfiguration.getSystemInfo().isUnix()){
+            return Platform.Linux;
+        }
+        else {
             return Platform.Unsupported;
         }
     }
@@ -174,6 +181,8 @@ public class UnityRunnerConfiguration {
                 return windowsLogPath;
             case Mac:
                 return macLogPath;
+            case Linux:
+                return linuxLogPath;
             default:
                 return null;
         }
@@ -218,6 +227,9 @@ public class UnityRunnerConfiguration {
             case Mac:
                 // on Mac there is only one location for apps.
                 addLocation("/Applications", locations);
+                break;
+            case Linux:
+                addLocation("/opt", locations);
                 break;
         }
 

@@ -27,6 +27,8 @@ import org.jetbrains.annotations.NotNull;
 import unityRunner.common.PluginConstants;
 
 import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -88,6 +90,7 @@ public class UnityRunnerBuildServiceFactory implements CommandLineBuildServiceFa
 
                 // find ALL the versions of unity installed
                 UnityRunnerConfiguration.Platform platform = UnityRunnerConfiguration.detectPlatform(agentConfiguration);
+                Loggers.AGENT.info(platform.toString());
                 if (platform == UnityRunnerConfiguration.Platform.Unsupported) {
                     // not a supported platform
                     return false;
@@ -159,6 +162,8 @@ public class UnityRunnerBuildServiceFactory implements CommandLineBuildServiceFa
                             findMacUnityVersion(entry, foundUnityVersions);
                         } else if (platform == UnityRunnerConfiguration.Platform.Windows) {
                             findWindowsUnityVersion(entry, foundUnityVersions);
+                        } else if (platform == UnityRunnerConfiguration.Platform.Linux){
+                            findLinuxUnityVersion(entry, foundUnityVersions);
                         }
                     }
                 } catch (IOException e) {
@@ -212,6 +217,42 @@ public class UnityRunnerBuildServiceFactory implements CommandLineBuildServiceFa
                     Loggers.AGENT.error("Exception getting unity version :" + e.getMessage());
                 }
 
+            }
+
+            private void findLinuxUnityVersion(Path possibleUnityLocation, Map<String,String> foundUnityVersions){
+                try{
+                    Path unityExecutable = possibleUnityLocation.resolve(UnityRunnerConfiguration.LinuxUnityExecutableRelativePath);
+                    Loggers.AGENT.info(unityExecutable.toString());
+
+                    if (unityExecutable.toFile().exists()) {
+                        // found Unity.exe - read version
+                        String command = "dpkg -s unity-editor";
+                        Process proc = Runtime.getRuntime().exec(command);
+                        BufferedReader reader =  
+                            new BufferedReader(new InputStreamReader(proc.getInputStream()));
+                        
+                        String line = "";
+                        while ((line = reader.readLine()) != null){
+                            Loggers.AGENT.info(line);
+                            if (line.startsWith("Version:"))
+                            {
+                                break;
+                            }
+                        }
+                        proc.waitFor();   
+
+                        String version = line.replace("Version: ", "").replace("Linux", "");      
+
+                        // TODO: test this - if it doesn't work then look at path, or long version number?
+                        if (version != null) {
+                            Loggers.AGENT.info("Found unity version = " + version + " at: " + unityExecutable.toString());
+                            foundUnityVersions.put(version, unityExecutable.toString());
+                        }
+                    }
+
+                } catch(Exception e){
+                    Loggers.AGENT.error("Exception getting unity version :" + e.getMessage());
+                }
             }
         };
     }
